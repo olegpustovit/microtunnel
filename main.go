@@ -93,6 +93,7 @@ func (d dummyAddr) String() string  { return string(d) }
 func main() {
 	port := flag.Int("port", 8080, "server listen port or client local port")
 	base := flag.String("base-domain-name", "", "tunnel.example.com (server)")
+	listenHost := flag.String("listen-host", "", "server bind address; empty listens on all interfaces")
 	srvURL := flag.String("server-url", "", "wss://example.com/tunnel (client)")
 	flag.Parse()
 
@@ -110,14 +111,14 @@ func main() {
 
 	if *srvURL == "" {
 		logrus.WithFields(logrus.Fields{"port": *port, "base_domain": *base}).Info("Starting server mode")
-		runServer(*port, *base)
+		runServer(*port, *base, *listenHost)
 	} else {
 		logrus.WithFields(logrus.Fields{"port": *port, "server_url": *srvURL}).Info("Starting client mode")
 		runClient(*port, *srvURL)
 	}
 }
 
-func runServer(listenPort int, baseDomain string) {
+func runServer(listenPort int, baseDomain string, listenHost string) {
 	upgrader := websocket.Upgrader{CheckOrigin: func(r *http.Request) bool { return true }}
 	sessions := make(map[string]*yamux.Session)
 	var mu sync.RWMutex
@@ -143,7 +144,7 @@ func runServer(listenPort int, baseDomain string) {
 		sessions[id] = sess
 		mu.Unlock()
 		logrus.WithFields(logrus.Fields{"id": id, "base_domain": baseDomain}).Info("Client registered")
-		fmt.Printf("✨ New tunnel connected! Available at: https://%s.%s\n", id, baseDomain)
+		fmt.Printf("Tunnel host: %s.%s\n", id, baseDomain)
 
 		go func() {
 			<-sess.CloseChan()
@@ -216,9 +217,9 @@ func runServer(listenPort int, baseDomain string) {
 		}()
 	})
 
-	addr := fmt.Sprintf(":%d", listenPort)
+	addr := net.JoinHostPort(listenHost, fmt.Sprint(listenPort))
 	logrus.WithField("listen_addr", addr).Info("Server listening")
-	fmt.Printf("🚀 Server running on port %d\n", listenPort)
+	fmt.Printf("Server listening on %s\n", addr)
 	logrus.Fatal(http.ListenAndServe(addr, nil))
 }
 
@@ -232,7 +233,7 @@ func runClient(localPort int, serverURL string) {
 
 	for retry := 0; retry < maxRetries; retry++ {
 		if retry > 0 {
-			fmt.Printf("🔄 Connection attempt %d/%d (waiting %s)...\n", retry+1, maxRetries, backoff)
+			fmt.Printf("Connection attempt %d/%d (waiting %s)...\n", retry+1, maxRetries, backoff)
 			time.Sleep(backoff)
 			// Exponential backoff with max cap
 			backoff *= 2
@@ -262,7 +263,7 @@ func runClient(localPort int, serverURL string) {
 		logrus.WithError(err).Fatal("Handshake failed")
 	}
 	logrus.WithFields(logrus.Fields{"id": info.ID, "base_domain": info.BaseDomain}).Info("Handshake info received")
-	fmt.Printf("▶ Tunnel ready at https://%s.%s\n", info.ID, info.BaseDomain)
+	fmt.Printf("Tunnel host: %s.%s\n", info.ID, info.BaseDomain)
 
 	conn := newWSConn(ws)
 	sess, err := yamux.Client(conn, nil)

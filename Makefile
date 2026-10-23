@@ -1,8 +1,10 @@
-build/server:
-	go build -o tunnel-server server/server.go
+.PHONY: build build/server build/client build/caddy up/caddy
 
-build/client:
-	go build -o tunnel-client client/client.go
+build:
+	go build -o microtunnel .
+
+# The same executable selects server or client mode through flags.
+build/server build/client: build
 
 build/caddy:
 	xcaddy build --with github.com/caddy-dns/cloudflare

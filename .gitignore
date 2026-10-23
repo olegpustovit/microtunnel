@@ -29,3 +29,5 @@ tunnel-server
 tunnel-client
 .envrc
 caddy
+
+/microtunnel

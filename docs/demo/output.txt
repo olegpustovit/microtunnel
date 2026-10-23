@@ -1,0 +1,6 @@
+Loopback-only synthetic HTTP demonstration
+Server and client: WebSocket + yamux
+Tunnel host: izubq644.tunnel.test
+GET /demo through tunnel: HTTP 200
+Response: Request reached the local app
+No TLS, public DNS or Cloudflare service was used.
